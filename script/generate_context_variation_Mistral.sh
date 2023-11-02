@@ -36,5 +36,4 @@ python    ../generate_context_dataset.py  \
           --prompts_path ../prompts_context_variation.json \
           --is_split_into_words \
           --LLM_key mistralai/Mistral-7B-Instruct-v0.1
-          --LLM_key mistralai/Mistral-7B-Instruct-v0.1
 done
