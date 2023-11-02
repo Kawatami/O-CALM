@@ -1,0 +1,8 @@
+{
+  "All" : "You act as an expert linguist, Could you provide more information about the entities in the provided text. Provide outputs that an expert linguist would create. Moreover, Please address any potential ambiguities or limitations in your answer in order to provide a more complete and accurate response. Provide outputs that an expert linguist would create.",
+  "Classic": "Could you provide more information about the entities in the provided text.",
+  "Persona" : "You act as an expert linguist, Could you provide more information about the entities in the provided text. Provide outputs that an expert linguist would create.",
+  "Reflexion_pattern" : "Could you provide more information about the entities in the provided text. Moreover, Please address any potential ambiguities or limitations in your answer in order to provide a more complete and accurate response.",
+  "Answer_format" : "Could you provide more information about the entities in the provided text. You should enumerate your answers as a list of propositions prefixed by a number."
+  
+}
