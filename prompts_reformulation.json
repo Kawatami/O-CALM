@@ -1,0 +1,8 @@
+{
+  "All" : "You act as an expert linguist, Could you provide reformulations of the provided input text while keeping the same entities, you can provide extra information. Provide outputs that an expert linguist would create. Moreover, Please address any potential ambiguities or limitations in your answer in order to provide a more complete and accurate response. Provide outputs that an expert linguist would create.",
+  "Classic": "Could you provide reformulations of the provided input text while keeping the same entities, you can provide extra information.",
+  "Persona" : "You act as an expert linguist, Could you provide reformulations of the provided input text while keeping the same entities, you can provide extra information. Provide outputs that an expert linguist would create.",
+  "Reflexion_pattern" : "Could you provide reformulations of the provided input text while keeping the same entities, you can provide extra information. Moreover, Please address any potential ambiguities or limitations in your answer in order to provide a more complete and accurate response.",
+  "Answer_format" : "Could you provide reformulations of the provided input text while keeping the same entities, you can provide extra information. You should enumerate your answers as a list of propositions prefixed by a number."
+
+}
