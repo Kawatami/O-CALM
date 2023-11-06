@@ -12,9 +12,9 @@
 
 #SBATCH --mail-type=ALL
 
-#SBATCH --output=/home/luiggit/project/contextual_ner/script/logs/baseline_large.out
+#SBATCH --output=/home/luiggit/project/contextual_ner/script/logs/context_generation_bc5cdr.out
 
-#SBATCH --error=/home/luiggit/project/contextual_ner/script/logs/baseline_large.out
+#SBATCH --error=/home/luiggit/project/contextual_ner/script/logs/context_generation_bc5cdr.out
 
 source ~/miniconda3/etc/profile.d/conda.sh
 
