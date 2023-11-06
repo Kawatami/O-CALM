@@ -183,3 +183,10 @@ def list_file(directory) :
     txt_files = [ x for x in directory.iterdir() if x.is_file() and x.suffix == ".txt" ]
 
     return { x.stem.split(".")[0] : x for x in txt_files }
+
+def list_file_bc5cdr(directory) :
+
+    # listing files
+    txt_files = [ x for x in directory.iterdir() if x.is_file() and x.suffix == ".txt" ]
+
+    return { x.stem.split("_")[0].replace("el", "") : x for x in txt_files }
