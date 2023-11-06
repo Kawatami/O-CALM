@@ -231,6 +231,7 @@ class BaselineModel(torch.nn.Module) :
 
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument("--dropout", type=float, default=None)
+        parser.add_argument("--num_label", type=int, default=13)
         parser.add_argument("--training_key", type=str, default='xlm-roberta-large')
         return parser
 
