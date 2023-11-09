@@ -12,9 +12,9 @@
 
 #SBATCH --mail-type=ALL
 
-#SBATCH --output=/home/luiggit/project/contextual_ner/script/logs/context_generation_bc5cdr.out
+#SBATCH --output=/home/luiggit/project/contextual_ner/script/logs/generation_b5cdr_NER.out
 
-#SBATCH --error=/home/luiggit/project/contextual_ner/script/logs/context_generation_bc5cdr.out
+#SBATCH --error=/home/luiggit/project/contextual_ner/script/logs/generation_b5cdr_NER.out
 
 source ~/miniconda3/etc/profile.d/conda.sh
 
@@ -34,7 +34,8 @@ python    ../generate_context_dataset.py  \
           --use_cuda \
           --batch_size  2 \
           --prompts_path ../prompts_NER.json \
-          --is_split_into_words
+          --is_split_into_words \
+          --skip_already_processed
 
 
 done
