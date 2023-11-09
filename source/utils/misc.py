@@ -164,6 +164,44 @@ def load_from_file(path : pathlib.Path) -> List[Dict]:
 
     return samples
 
+
+def load_from_file_cnllpp(path : pathlib.Path) -> List[Dict]:
+    """
+    Load the data of WNUT17 from files
+    :param path: path to the file to load
+    :return:
+    """
+    # checking path
+    if not path.exists():
+        raise FileNotFoundError(f"File {path} not found.")
+
+    with path.open("r", encoding='utf-8') as file:
+        data_str = file.read()
+
+    # splitting over samples
+    data = data_str.split('\n\n')
+
+    # removing header
+    data = data[1:]
+
+    if data[-1] == "" :
+        data = data[:-1]
+
+    # splitting over tokens
+    sample = [
+        [re.split(r"\t| ", token) for token in point.split("\n")]
+        for point in data
+    ]
+
+    samples = [
+        {"text": [elt[0] for elt in sequence if elt[0] != ''],
+         "ner_tags": [elt[-1].replace("-", "_") for elt in sequence if elt[0] != '']}
+        for sequence in sample
+    ]
+
+    return samples
+
+
 def store_results(results : Dict, directory : pathlib.Path) -> None :
     """
 
@@ -183,3 +221,28 @@ def list_file(directory) :
     txt_files = [ x for x in directory.iterdir() if x.is_file() and x.suffix == ".txt" ]
 
     return { x.stem.split(".")[0] : x for x in txt_files }
+
+def list_file_bc5cdr(directory) :
+
+    # listing files
+    txt_files = [ x for x in directory.iterdir() if x.is_file() and x.suffix == ".txt" ]
+
+    return { x.stem.split("_")[0].replace("el", "") : x for x in txt_files }
+
+def list_file_conll(directory) :
+
+    # listing files
+    txt_files = [ x for x in directory.iterdir() if x.is_file() and x.suffix == ".txt" ]
+
+    res = {}
+    for file in txt_files :
+        if "_" in file.stem :
+            name = file.stem.split("_")[1]
+        else :
+            name = file.stem
+
+        res[name] = file
+
+
+
+    return res

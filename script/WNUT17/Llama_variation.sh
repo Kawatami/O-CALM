@@ -16,6 +16,8 @@
 
 #SBATCH --error=/home/luiggit/project/contextual_ner/script/logs/baseline_large.out
 
+#
+
 source ~/miniconda3/etc/profile.d/conda.sh
 
 conda activate deep

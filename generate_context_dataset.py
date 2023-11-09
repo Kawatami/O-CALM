@@ -32,6 +32,7 @@ def format_sequence(sequences) :
 
 def main(args: argparse.Namespace) -> None:
 
+
     # init generator
     generator = ContextGenerator(
         LLM_key=args.LLM_key,
@@ -71,6 +72,14 @@ def main(args: argparse.Namespace) -> None:
 
         for file in files :
 
+            # checking if destination already exist
+            destination_file = destination / f"{file.stem}_with_context.txt"
+            destination_file_json = destination / f"{file.stem}_with_context.json"
+
+            if destination_file.exists() and args.skip_already_processed :
+                print(f"##{destination_file} already found skipping...")
+                continue
+
             # laoding data
             print(f"Loading : {file}")
             samples = load_from_file(file)
@@ -95,8 +104,7 @@ def main(args: argparse.Namespace) -> None:
 
             final_results = "\n\n".join(final_results)
 
-            destination_file = destination / f"{file.stem}_with_context.txt"
-            destination_file_json = destination / f"{file.stem}_with_context.json"
+
 
             # storing data for training
             with destination_file.open("w+") as dest_file :
@@ -119,6 +127,7 @@ if __name__ == "__main__":
     parser.add_argument("--path", type=pathlib.Path)
     parser.add_argument("--prompts_path", type=pathlib.Path)
     parser.add_argument("--destination", type=pathlib.Path)
+    parser.add_argument("--skip_already_processed", action='store_true', default=False)
 
     args = parser.parse_args()
 
