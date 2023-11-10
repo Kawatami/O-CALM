@@ -33,6 +33,12 @@ Note that ```INFERENCE_ROOT``` is env variable used to indicate where to store t
 INFERENCE_ROOT=path/to/logs
 ```
 
+Note that ```MODEL_FILES``` is env variable used to indicate where per-trained transformer files a stored in case you
+want to load them locally
+```bash
+MODEL_FILES=path/to/model/files
+```
+
 ### Training
 
 The training of a given experiment can be done within the ```script``` folder. ***DO NOT ENTER SUBFOLDER
