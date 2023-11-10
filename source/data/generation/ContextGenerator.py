@@ -1,25 +1,31 @@
-from typing import List
+import pathlib
+from typing import List, Optional
 from tqdm import tqdm
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from argparse import ArgumentParser, Namespace
 from source.data.generation.PromptGenerator import PromptGenerator
-
+import os
 
 class ContextGenerator :
+    """
+
+    """
+
 
     def __init__(
             self,
             LLM_key : str,
             prompt_generator: PromptGenerator,
-            use_fast_tokenizer : bool = True,
             batch_size : int = 32,
             generation_max_length : int = 512,
             use_cuda : bool = False,
             is_split_into_words : bool = False,
-            is_pretokenized : bool = False,
-
+            LLM_load_locally : Optional[str] = None
     ) :
+        """
+
+        """
 
         # batch size
         self.batch_size = batch_size
@@ -31,11 +37,14 @@ class ContextGenerator :
 
         # init model for generation
         print("## LOADING MODEL...", end="")
-        self.model = AutoModelForCausalLM.from_pretrained(
-            LLM_key,
-            use_auth_token="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",
-            device_map='auto'
-        )
+        if LLM_load_locally is not None :
+            self.model = AutoModelForCausalLM.from_pretrained(
+                LLM_key,
+                use_auth_token="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",
+                device_map='auto'
+            )
+        else :
+            self.model = self.load_model_locally(LLM_load_locally)
         print("DONE")
 
         print("## FITTING MODEL TO GPU...", end="")
@@ -55,6 +64,26 @@ class ContextGenerator :
         print("DONE")
 
         self.prompt_generator = prompt_generator
+
+    def load_model_locally(self, LLM_load_locally) :
+        """
+        Load the transformers model from local files given the env variable MODEL_FILES is defined.
+        :param transformer_local_load: subdirectory holding the model files
+        :return : the loaded model
+        """
+
+        # sanity check
+        if "MODEL_FILES" not in os.environ:
+            raise EnvironmentError(f"No $MODEL_FILES env variable have been defined. Make sure to set to "
+                                   f"model file location in order to load them locally.")
+
+        # creating path
+        path_model = pathlib.Path(os.environ['MODEL_FILES']) / LLM_load_locally
+
+        # loading model
+        model = AutoModelForCausalLM.from_pretrained(path_model)
+
+        return model
 
     def move_data_GPU(self, encoded_input) :
 
@@ -83,7 +112,6 @@ class ContextGenerator :
             prompted_text = self.prompt_generator(original_texts)
 
             yield prompted_text, original_texts
-
 
     def generate(self, input_texts : List[str])  :
         """
@@ -164,6 +192,7 @@ class ContextGenerator :
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
 
         parser.add_argument("--LLM_key", type = str, default = 'meta-llama/Llama-2-7b-chat-hf')
+        parser.add_argument("--LLM_load_locally", type = str, default=None)
         parser.add_argument("--use_fast_tokenizer", action='store_true', default = False)
         parser.add_argument("--use_cuda", action='store_true', default = False)
         parser.add_argument("--is_split_into_words", action='store_true', default = False)
