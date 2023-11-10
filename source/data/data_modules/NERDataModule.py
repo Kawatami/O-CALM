@@ -12,6 +12,7 @@ from datasets import Features, Sequence, ClassLabel, Value
 from functools import cached_property
 from transformers import AutoTokenizer
 from source.utils.misc import list_file
+import os
 
 class NERDataModule(BaseDataModule) :
     """
@@ -29,6 +30,7 @@ class NERDataModule(BaseDataModule) :
                  batch_size: int = 32,
                  batch_size_test: int = 10,
                  single_sample_training : bool = False,
+                 tokenizer_local_load : Optional[str] = None,
                  **kwargs
         ) :
         """
@@ -79,6 +81,8 @@ class NERDataModule(BaseDataModule) :
 
         self.data_loaded = False
 
+        self.tokenizer_local_load = tokenizer_local_load
+
 
 
     def update_args(self, args : Namespace) :
@@ -112,6 +116,7 @@ class NERDataModule(BaseDataModule) :
         parser.add_argument("--verbose", action = "store_true", default = False)
         parser.add_argument("--seed", type = int, default = 42)
         parser.add_argument("--single_sample_training", action="store_true", default = False)
+        parser.add_argument("--tokenizer_local_load", type = str, default = None)
 
         return parser
 
@@ -158,15 +163,43 @@ class NERDataModule(BaseDataModule) :
 
     @cached_property
     def model_tokenizer(self) :
-        tokenizer = AutoTokenizer.from_pretrained(
-            "xlm-roberta-large",
-            use_fast = True,
-            add_prefix_space=True
-        )
+
+        if self.tokenizer_local_load is None :
+            tokenizer = AutoTokenizer.from_pretrained(
+                "xlm-roberta-large",
+                use_fast = True,
+                add_prefix_space=True
+            )
+        else :
+            tokenizer = self.load_tokenizer_locally(self.tokenizer_local_load)
 
         tokenizer.add_tokens(["<EOS>"], special_tokens=True)
 
         return tokenizer
+
+    def load_tokenizer_locally(self, tokenizer_local_load) :
+        """
+        Load the tokenizer from local files given the env variable MODEL_FILES is defined.
+        :param tokenizer_local_load: subdirectory holding the model files
+        :return : the tokenizer
+        """
+
+        # sanity check
+        if "MODEL_FILES" not in os.environ :
+            raise EnvironmentError(f"No $MODEL_FILES env variable have been defined. Make sure to set it "
+                                   f"model file location in order to load the tokenizer locally.")
+
+        # creating path
+        path_tokenizer = pathlib.Path(os.environ['MODEL_FILES']) / tokenizer_local_load
+
+        # loading model
+        model = AutoTokenizer.from_pretrained(
+            path_tokenizer,
+            use_fast = True,
+            add_prefix_space = True
+        )
+
+        return model
 
     def process_labels(
             self,
