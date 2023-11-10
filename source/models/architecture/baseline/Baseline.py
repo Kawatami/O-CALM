@@ -1,7 +1,11 @@
 from __future__ import annotations
+
+import os
+import pathlib
+
 import torch
-from typing import Dict, Optional, Tuple, List, Callable
-from transformers import AutoModel
+from typing import Dict, Optional, Tuple, List, Type
+from transformers import AutoModel, PreTrainedModel
 from source.models.common.CRF import CRF, PartialCRF
 from source.utils.register import register
 from argparse import ArgumentParser, Namespace
@@ -36,6 +40,7 @@ class BaselineModel(torch.nn.Module) :
             num_label : int = 13,
             dropout : Optional[float] = None,
             training_key : str = "xlm-roberta-large",
+            transformer_local_load : Optional[str] = None,
             **kwargs
     ):
         """
@@ -58,9 +63,12 @@ class BaselineModel(torch.nn.Module) :
         }
 
         # defining model
-        self.model = AutoModel.from_pretrained(
-            training_key
-        )
+        if transformer_local_load is None :
+            self.model = AutoModel.from_pretrained(
+                training_key
+            )
+        else :
+            self.model = self.load_model_locally(transformer_local_load)
 
         # setting classifier
         self.classfier = torch.nn.Linear(
@@ -213,6 +221,26 @@ class BaselineModel(torch.nn.Module) :
 
         return [optimizer], [scheduler]
 
+    def load_model_locally(self, transformer_local_load) -> Type[PreTrainedModel] :
+        """
+        Load the transformers model from local files given the env variable MODEL_FILES is defined.
+        :param transformer_local_load: subdirectory holding the model files
+        :return : the loaded model
+        """
+
+        # sanity check
+        if "MODEL_FILES" not in os.environ :
+            raise EnvironmentError(f"No $MODEL_FILES env variable have been defined. Make sure to set it "
+                                   f"model file location in order to load them locally.")
+
+        # creating path
+        path_model = pathlib.Path(os.environ['MODEL_FILES']) / transformer_local_load
+
+        # loading model
+        model = AutoModel.from_pretrained(path_model)
+
+        return model
+
     def export_hparams(self, hparams) -> None :
         """
         Store the model's hyperparameters
@@ -233,6 +261,7 @@ class BaselineModel(torch.nn.Module) :
         parser.add_argument("--dropout", type=float, default=None)
         parser.add_argument("--num_label", type=int, default=13)
         parser.add_argument("--training_key", type=str, default='xlm-roberta-large')
+        parser.add_argument("--transformer_local_load", type=str, default=None)
         return parser
 
     @classmethod
