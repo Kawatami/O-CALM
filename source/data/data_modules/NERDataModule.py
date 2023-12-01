@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import warnings
 from argparse import ArgumentParser, Namespace
 from datasets import Dataset
 from typing import Callable, Type, Optional, List
@@ -13,7 +15,7 @@ from functools import cached_property
 from transformers import AutoTokenizer
 from source.utils.misc import list_file
 import os
-
+from source.utils.HyperParametersManagers import HyperParametersManager
 class NERDataModule(BaseDataModule) :
     """
     Base class for NER DataLoading
@@ -31,6 +33,8 @@ class NERDataModule(BaseDataModule) :
                  batch_size_test: int = 10,
                  single_sample_training : bool = False,
                  tokenizer_local_load : Optional[str] = None,
+                 tokenizer_key : str = "xlm-roberta-large",
+                 gpus : int = None,
                  **kwargs
         ) :
         """
@@ -51,6 +55,7 @@ class NERDataModule(BaseDataModule) :
         self.load_from_file = file_loader
         self.label_enum = label_enum
         self.list_file = file_detector
+        self.tokenizer_key = tokenizer_key
 
         # Init logger
         logging.basicConfig(
@@ -82,6 +87,11 @@ class NERDataModule(BaseDataModule) :
         self.data_loaded = False
 
         self.tokenizer_local_load = tokenizer_local_load
+
+        if gpus is None :
+            warnings.warn(f"### WARNING : No GPU is defined, assuming only one is used or CPU only. Setting to 1.")
+            gpus = 1
+        self.gpus = gpus
 
 
 
@@ -117,6 +127,7 @@ class NERDataModule(BaseDataModule) :
         parser.add_argument("--seed", type = int, default = 42)
         parser.add_argument("--single_sample_training", action="store_true", default = False)
         parser.add_argument("--tokenizer_local_load", type = str, default = None)
+        parser.add_argument("--tokenizer_key", type = str, default = "xlm-roberta-large")
 
         return parser
 
@@ -159,6 +170,11 @@ class NERDataModule(BaseDataModule) :
                 "test": self.create_dataLoader(Dataset.from_generator(gen, gen_kwargs={"samples" : self.sets['test']}))
             }
 
+            # storing info
+            HyperParametersManager()['n_training_steps'] = len(self.sets['train']) / self.gpus
+            HyperParametersManager()['n_val_steps'] = len(self.sets['val']) / self.gpus
+            HyperParametersManager()['n_test_steps'] = len(self.sets['test']) / self.gpus
+
             self.data_loaded = True
 
     @cached_property
@@ -166,9 +182,10 @@ class NERDataModule(BaseDataModule) :
 
         if self.tokenizer_local_load is None :
             tokenizer = AutoTokenizer.from_pretrained(
-                "xlm-roberta-large",
+                self.tokenizer_key,
                 use_fast = True,
-                add_prefix_space=True
+                add_prefix_space=True,
+                model_max_length=512
             )
         else :
             tokenizer = self.load_tokenizer_locally(self.tokenizer_local_load)
@@ -192,11 +209,19 @@ class NERDataModule(BaseDataModule) :
         # creating path
         path_tokenizer = pathlib.Path(os.environ['MODEL_FILES']) / tokenizer_local_load
 
+        if not path_tokenizer.exists() :
+            raise FileNotFoundError(f"Directory {path_tokenizer} not found.")
+
         # loading model
         model = AutoTokenizer.from_pretrained(
             path_tokenizer,
             use_fast = True,
-            add_prefix_space = True
+            add_prefix_space = True,
+            padding="max_length",
+            is_split_into_words=True,
+            truncation=True,
+            return_tensors="pt",
+            model_max_length=512
         )
 
         return model
@@ -292,11 +317,23 @@ class NERDataModule(BaseDataModule) :
             return_tensors = "pt"
         )
 
-        # processing labels
-        labels = self.process_labels(
-            encoded_input,
-            labels
-        )
+        try :
+            # processing labels
+            labels = self.process_labels(
+                encoded_input,
+                labels
+            )
+        except Exception as e :
+
+            # looking for index
+            index = 0
+            for i in range(len(labels)) :
+                if "Morganization" in labels[i] :
+                    index = i
+
+            print(labels[index])
+            print(tokens[index])
+            exit()
 
         # processing attention mask without context and token type ids
         eos_token_id = self.model_tokenizer.convert_tokens_to_ids('<EOS>')
