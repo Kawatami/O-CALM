@@ -65,6 +65,9 @@ def main() -> int :
     high_level_parser.add_argument('--callback_verbose', type=bool, default=False,
                                    help=f'Enable verbose mode on all callback')
 
+    high_level_parser.add_argument("--resume_training", action="store_true", default=False,
+                                   help="Check if a checkpoint file exists and restore the training from this sate.")
+
     # high level arguments
     high_level_parser.add_argument('--task', type=str, required=True,
                                    choices=Registers["TASKS"].keys())
