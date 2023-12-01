@@ -13,7 +13,7 @@ from transformers import get_linear_schedule_with_warmup
 from torch.optim.lr_scheduler import LambdaLR
 from functools import partial
 import math
-
+from source.utils.HyperParametersManagers import HyperParametersManager
 def _get_cosine_schedule_with_warmup_lr_lambda(
     current_step: int,
     *,
@@ -130,7 +130,7 @@ class BaselineModel(torch.nn.Module) :
         CRF_prediction_with_context = self.CRF.compute_posterior(logits_with_context.detach(), mask_crf)
         CRF_prediction_without_context = self.CRF.compute_posterior(logits_without_context, mask_crf)
         batch["CRF_posterior_with_context"] = CRF_prediction_with_context # detach cause we back-propagate only to
-        batch["CRF_posterior_without_context"] = CRF_prediction_without_context    # sequence without context
+        batch["CRF_posterior_without_context"] = CRF_prediction_without_context # sequence without context
 
         # processing CRF loss
         CRF_loss_with_context = - self.CRF(logits_with_context, batch['labels'], mask_crf)
@@ -149,7 +149,6 @@ class BaselineModel(torch.nn.Module) :
     def get_optimizer_config(
             self,
             learning_rate,
-            n_training_steps : int = 563,
             accumulate_grad_batches : int = 1,
             max_epochs : int = None,
             **kwargs
@@ -160,10 +159,9 @@ class BaselineModel(torch.nn.Module) :
         """
 
         # sanity check
-        # TODO : find a way to get the number of training steps
-        # if n_training_steps is None :
-        #     raise ValueError(f"No \"n_training_steps\" is defined in the main Namespace object. Verify it is defined in "
-        #                      f"the high level parser.")
+        if 'n_training_steps' not in HyperParametersManager() :
+            raise ValueError(f"No \"n_training_steps\" is defined in the HyperParametersManager object. Verify it is defined in "
+                             f"during the datasets set up phase.")
         if max_epochs is None :
             raise ValueError(f"No \"max_epochs\" is defined in the main Namespace object. Verify it is defined in "
                              f"the high level parser.")
@@ -198,7 +196,7 @@ class BaselineModel(torch.nn.Module) :
         )
 
         # TODO : handling training configuration (number of steps, number of GPUS and gradient accumulation)
-        num_training_steps = (n_training_steps  * max_epochs) // accumulate_grad_batches
+        num_training_steps = (HyperParametersManager()['n_training_steps']  * max_epochs) // accumulate_grad_batches
         num_warmup_steps = int(0.1 * num_training_steps)
 
         print(f"num train step : {num_warmup_steps}")
@@ -237,7 +235,11 @@ class BaselineModel(torch.nn.Module) :
         path_model = pathlib.Path(os.environ['MODEL_FILES']) / transformer_local_load
 
         # loading model
-        model = AutoModel.from_pretrained(path_model)
+        model = AutoModel.from_pretrained(
+            path_model,
+            device_map='auto',
+            local_files_only=True
+        )
 
         return model
 
