@@ -36,6 +36,7 @@ bertscore = load("bertscore")
 def process_avg_bert_score(input, context) :
 
     # processing bertsore
+    print("## PROCESSING BERTSCORE")
     results = bertscore.compute(
         references=input,
         predictions=context,
@@ -49,9 +50,9 @@ def main(args: argparse.Namespace) -> None:
 
 
     generation_directories = [
-        pathlib.Path("data/WNUT17/CLNER_datasets/annot_NER"),
-        pathlib.Path("data/WNUT17/CLNER_datasets/annot_reformulation"),
-        pathlib.Path("data/WNUT17/CLNER_datasets/annot_variationER")
+        pathlib.Path("data/WNUT17/CLNER_datasets/annot_context_variation_CNLLPP"),
+        pathlib.Path("data/WNUT17/CLNER_datasets/annot_NER_CNLLPP"),
+        pathlib.Path("data/WNUT17/CLNER_datasets/annot_reformulation_CNLLPP"),
     ]
 
     # Processing bert score for ref
@@ -80,7 +81,7 @@ def main(args: argparse.Namespace) -> None:
             variation_name = path_prompt.stem
 
             # convert to string
-            path_data = path_prompt / "train.conll_with_context.txt"
+            path_data = path_prompt / "conllpp_train_with_context.txt"
             generated_data = load_from_file(path_data)
             context_generated = [remove_inputs(sample) for sample in generated_data]
             context_generated = [" ".join(sample) for sample in context_generated]
@@ -97,7 +98,7 @@ def main(args: argparse.Namespace) -> None:
 
         scores[prompt_name] = current_scores
 
-    path = pathlib.Path("./result_bert_score_context.json")
+    path = pathlib.Path("./result_bert_score_context_conllpp.json")
 
     with path.open("w+") as file:
         json.dump(scores, file, indent=4)
