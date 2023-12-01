@@ -35,7 +35,7 @@ do
             --data_dir ../data/WNUT17/CLNER_datasets/$ANNOT_DIR/$VARIATION/ \
             --model BaselineModel \
             --num_label 5 \
-            --metrics class-SeqEvalWNUT17 \
+            --metrics class-SeqEvalBC5CDR \
             --loss MultiTaskLoss  \
             --losses CRFLoss CRFLoss KLDivergence \
             --loss_input_keys  CRF_loss_with_context CRF_loss_without_context CRF_posterior_without_context \
