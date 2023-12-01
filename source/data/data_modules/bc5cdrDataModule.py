@@ -5,7 +5,7 @@ from enum import Enum
 from source.utils.misc import load_from_file, list_file_bc5cdr
 from source.data.data_modules.NERDataModule import NERDataModule
 
-# defining WNUT17 labels
+# defining BC5CDR labels
 class BC5CDR_label(Enum):
     B_Chemical = 0
     B_Disease = 1
