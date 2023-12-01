@@ -21,7 +21,9 @@ class ContextGenerator :
             generation_max_length : int = 512,
             use_cuda : bool = False,
             is_split_into_words : bool = False,
-            LLM_load_locally : Optional[str] = None
+            LLM_load_locally : Optional[str] = None,
+            tokenizer_load_locally : Optional[str] = None,
+            display_generated_output : bool = False
     ) :
         """
 
@@ -31,13 +33,14 @@ class ContextGenerator :
         self.batch_size = batch_size
         self.use_cuda = use_cuda
         self.is_split_into_words = is_split_into_words
+        self.display_generated_output = display_generated_output
 
         assert 1 <= generation_max_length <= 512, f"Generation max length should be nbetween 1 and 512."
         self.generation_max_length = generation_max_length
 
         # init model for generation
         print("## LOADING MODEL...", end="")
-        if LLM_load_locally is not None :
+        if LLM_load_locally is None :
             self.model = AutoModelForCausalLM.from_pretrained(
                 LLM_key,
                 use_auth_token="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",
@@ -54,11 +57,16 @@ class ContextGenerator :
 
         # init tokenizer
         print("## LOADING TOKENIZER...", end="")
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            LLM_key,
-            use_auth_token="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",
-            is_split_into_words=self.is_split_into_words
-        )
+        if tokenizer_load_locally is None :
+
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                LLM_key,
+                use_auth_token="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",
+                is_split_into_words=self.is_split_into_words
+            )
+        else :
+            self.tokenizer = self.load_tokenizer_locally(tokenizer_load_locally)
+
         self.tokenizer.padding_side = "left"
         self.tokenizer.pad_token = self.tokenizer.eos_token
         print("DONE")
@@ -80,8 +88,35 @@ class ContextGenerator :
         # creating path
         path_model = pathlib.Path(os.environ['MODEL_FILES']) / LLM_load_locally
 
+        # checking model directory
+        if not path_model.exists() :
+            raise FileNotFoundError(f"Model file not found. Directory {path_model} not found.")
+
         # loading model
-        model = AutoModelForCausalLM.from_pretrained(path_model)
+        model = AutoModelForCausalLM.from_pretrained(
+            path_model,
+            device_map='auto'
+        )
+
+        return model
+
+    def load_tokenizer_locally(self, tokenizer_load_locally):
+        """
+        Load the transformers tokenizer from local files given the env variable MODEL_FILES is defined.
+        :param transformer_local_load: subdirectory holding the model files
+        :return : the loaded model
+        """
+
+        # sanity check
+        if "MODEL_FILES" not in os.environ:
+            raise EnvironmentError(f"No $MODEL_FILES env variable have been defined. Make sure to set to "
+                                   f"model file location in order to load them locally.")
+
+        # creating path
+        path_model = pathlib.Path(os.environ['MODEL_FILES']) / tokenizer_load_locally
+
+        # loading model
+        model = AutoTokenizer.from_pretrained(path_model)
 
         return model
 
@@ -145,6 +180,8 @@ class ContextGenerator :
                 if self.use_cuda :
                     encoded_input = self.move_data_GPU(encoded_input)
 
+
+
                 # generation
                 generate_ids  = self.model.generate(
                     encoded_input['input_ids'],
@@ -176,6 +213,12 @@ class ContextGenerator :
                         { "text" : text, "generated_context" : generated_answer }
                     )
 
+                    if self.display_generated_output :
+                        print("====")
+                        print(text)
+                        print("----")
+                        print(generated_answer)
+
                 outputs += current_output
 
                 # if i >= 3 :
@@ -193,9 +236,10 @@ class ContextGenerator :
 
         parser.add_argument("--LLM_key", type = str, default = 'meta-llama/Llama-2-7b-chat-hf')
         parser.add_argument("--LLM_load_locally", type = str, default=None)
-        parser.add_argument("--use_fast_tokenizer", action='store_true', default = False)
+        parser.add_argument("--tokenizer_load_locally", type = str, default=None)
         parser.add_argument("--use_cuda", action='store_true', default = False)
         parser.add_argument("--is_split_into_words", action='store_true', default = False)
+        parser.add_argument("--display_generated_output", action='store_true', default = False)
         parser.add_argument("--batch_size", type = int, default=32)
         parser.add_argument("--generation_max_length", type = int, default=256)
 
