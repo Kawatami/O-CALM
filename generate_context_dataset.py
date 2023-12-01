@@ -29,19 +29,28 @@ def format_sequence(sequences) :
 
     return output, labels_context
 
+def select_prompts(promtps, selections) :
+    if selections == [] :
+        print(f"NO promtps")
+
+        return promtps
+    else :
+        print(f"Selecting {' '.join(selections)}")
+        return { k : promtps[k] for k in selections }
 
 def main(args: argparse.Namespace) -> None:
-
 
     # init generator
     generator = ContextGenerator(
         LLM_key=args.LLM_key,
-        use_fast_tokenizer=args.use_fast_tokenizer,
         batch_size=args.batch_size,
         generation_max_length=args.generation_max_length,
         is_split_into_words=args.is_split_into_words,
         use_cuda=args.use_cuda,
-        prompt_generator=None
+        prompt_generator=None,
+        display_generated_output=args.display_generated_output,
+        LLM_load_locally=args.LLM_load_locally,
+        tokenizer_load_locally=args.tokenizer_load_locally
     )
 
     # listing file in directory
@@ -50,6 +59,8 @@ def main(args: argparse.Namespace) -> None:
     with args.prompts_path.open("r") as file :
         prompts = json.load(file)
 
+    prompts = select_prompts(prompts, args.select_prompts)
+
     for key, prompt in prompts.items() :
 
         print(f"## PROCESSING FOR PROMPTS\n{prompt}")
@@ -57,7 +68,7 @@ def main(args: argparse.Namespace) -> None:
         # init prompt generator
         prompt_generator = PromptGenerator(
             prompt=prompt,
-            system_tags=("", "Context :")
+           # system_tags=("", "Context :")
         )
 
         # update promt_generator
@@ -107,8 +118,8 @@ def main(args: argparse.Namespace) -> None:
 
 
             # storing data for training
-            with destination_file.open("w+") as dest_file :
-                dest_file.write(final_results)
+            with destination_file.open("wb") as dest_file :
+                dest_file.write(final_results.encode('utf-8'))
 
             # storing data in json for statistics
             json_content = {"prompt" : prompt, "data" : output_post_processed}
@@ -128,6 +139,7 @@ if __name__ == "__main__":
     parser.add_argument("--prompts_path", type=pathlib.Path)
     parser.add_argument("--destination", type=pathlib.Path)
     parser.add_argument("--skip_already_processed", action='store_true', default=False)
+    parser.add_argument("--select_prompts", type = str, nargs= "+", default=[])
 
     args = parser.parse_args()
 
