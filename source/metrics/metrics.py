@@ -5,7 +5,11 @@ from typing import *
 from argparse import ArgumentParser
 from seqeval.metrics import classification_report as classification_report_seqeval
 from seqeval.scheme import IOB2, IOB1
+from typing import Type
+from enum import Enum
 from source.data.data_modules.WNUT17DataModule import WNUT17_label
+from source.data.data_modules.bc5cdrDataModule import BC5CDR_label
+from source.data.data_modules.CNLLPPDataModule import CNLLPP_label
 
 @register('METRICS')
 class Accuracy(BaseMetric):
@@ -76,12 +80,11 @@ class Accuracy(BaseMetric):
 
         return prd, tgt
 
-@register('METRICS')
-class SeqEvalWNUT17(BaseMetric):
+class BaseSeqEval(BaseMetric):
 
     _names = ['SeqEval']
 
-    def __init__(self, **kwargs):
+    def __init__(self, enum_label : Type[Enum], **kwargs):
         super().__init__(**kwargs)
 
         self.epsilone = 1e-6
@@ -92,7 +95,7 @@ class SeqEvalWNUT17(BaseMetric):
         self.add_state(f"target", default=torch.Tensor([]), dist_reduce_fx='cat')
 
 
-        self.id2label = {i.value : i.name for i in WNUT17_label if i.value != -100}
+        self.id2label = {i.value : i.name for i in enum_label if i.value != -100}
 
     @property
     def name(self):
@@ -217,3 +220,28 @@ class SeqEvalWNUT17(BaseMetric):
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
 
         return parser
+
+@register('METRICS')
+class SeqEvalWNUT17(BaseSeqEval):
+
+    _names = ['SeqEvalWNUT17']
+
+    def __init__(self, **kwargs):
+        super().__init__(WNUT17_label, **kwargs)
+
+
+@register('METRICS')
+class SeqEvalBC5CDR(BaseSeqEval):
+
+    _names = ['SeqEvalbc5cdr']
+
+    def __init__(self, **kwargs):
+        super().__init__(BC5CDR_label, **kwargs)
+
+@register('METRICS')
+class SeqEvalCNLLPP(BaseSeqEval):
+    _names = ['SeqEvalbc5cdr']
+
+    def __init__(self, **kwargs):
+        super().__init__(CNLLPP_label, **kwargs)
+
