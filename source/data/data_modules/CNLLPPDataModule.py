@@ -5,7 +5,7 @@ from enum import Enum
 from source.utils.misc import load_from_file_cnllpp, list_file_conll
 from source.data.data_modules.NERDataModule import NERDataModule
 
-# defining WNUT17 labels
+# defining CONLL++ labels
 class CNLLPP_label(Enum):
     B_LOC = 0
     B_MISC = 1
