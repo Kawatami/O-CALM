@@ -120,7 +120,6 @@ class ModelCheckpointWrapper(BaseCallback, ModelCheckpoint) :
         super().__init__(
             monitor=modelCheckpoint_monitor,
             mode=mode,
-            save_weights_only=True,
             every_n_train_steps=modelCheckpoint_every_n_train_steps,
             save_last=True,
             every_n_epochs=1,
