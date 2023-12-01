@@ -1,6 +1,7 @@
+import warnings
 from argparse import Namespace
 from source.utils.register import Registers
-from source.utils.misc import store_results
+from source.utils.misc import store_results, process_last_checkoint_path
 from source.callbacks.factory import CallbacksFactory
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
@@ -61,10 +62,25 @@ def train(args : Namespace) -> int :
         callbacks=callbacks
     )
 
-    # launching training
-    trainer.fit(model=task, datamodule=dataset)
+    path_checkpoint = None
 
-    # saving model
+    if args.resume_training :
+
+        # processing path to the last checkpoint
+        path_checkpoint = process_last_checkoint_path(args.default_root_dir, args.version)
+
+        # checking if file exists
+        if not path_checkpoint.exists() :
+            warnings.warn(f"No checkpoint have been found at {path_checkpoint} starting from scratch.")
+            path_checkpoint = None
+        else :
+            logging.info(f"## RESTORING FROM CHECKPOINT AT {path_checkpoint}")
+
+
+    # launching training
+    trainer.fit(model=task, datamodule=dataset, ckpt_path=path_checkpoint)
+
+    # passing model into evaluation mode
     task.model.eval()
 
     # testing
