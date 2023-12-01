@@ -17,6 +17,13 @@ proxy = { 'http': 'http://192.168.0.100:3128', 'https': 'http://192.168.0.100:31
 
 # ------------ HELPERS ----------------------
 
+def process_last_checkoint_path(default_root_dir, version) -> pathlib.Path :
+    """
+    Process the path to the last checkpoint
+    """
+
+    return pathlib.Path(default_root_dir) / "lightning_logs" / f"version_{version}" / "checkpoints" / "last.ckpt"
+
 def solve_metric(repr : str) -> Tuple[str, str, str] :
     """
     Convert a string representation into a double of string
@@ -158,7 +165,7 @@ def load_from_file(path : pathlib.Path) -> List[Dict]:
 
     samples = [
         {"text": [elt[0] for elt in sequence if elt[0] != ''],
-         "ner_tags": [elt[1].replace("-", "_") for elt in sequence if elt[0] != '']}
+         "ner_tags": [elt[-1].replace("-", "_") for elt in sequence if elt[0] != '']}
         for sequence in sample
     ]
 
