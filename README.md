@@ -1,4 +1,5 @@
-# CLNER
+# O-CALM
+
 
 This repo contains the code for reproducing experiments conducted in the paper [Augmented NER via LLm prompting]().
 
