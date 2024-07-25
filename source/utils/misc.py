@@ -12,10 +12,18 @@ import json
 # ------------ GLOBAL VAR -------------------
 
 MODEL_FILES_ROOT = pathlib.Path(__file__).parents[2] / "model_files"
-proxy = { 'http': 'http://192.168.0.100:3128', 'https': 'http://192.168.0.100:3128' }
+proxy = 'http://192.168.0.100:3128'
 
 
 # ------------ HELPERS ----------------------
+
+def use_proxy() :
+    print(f"### USING PROXY : {proxy}")
+    import os
+    os.environ['http_proxy'] = proxy
+    os.environ['HTTP_PROXY'] = proxy
+    os.environ['https_proxy'] = proxy
+    os.environ['HTTPS_PROXY'] = proxy
 
 def process_last_checkoint_path(default_root_dir, version) -> pathlib.Path :
     """

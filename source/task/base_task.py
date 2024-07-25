@@ -303,7 +303,7 @@ class BaseTask(pl.LightningModule):
                         # reset metric
                         metric.reset()
 
-                self.log_dict(log, prog_bar=True)
+                self.log_dict(log, prog_bar=True, sync_dist=True)
 
     def on_train_epoch_end(self) -> None :
         self.epoch_end('trainset', self.train_set_names)
@@ -329,8 +329,10 @@ class BaseTask(pl.LightningModule):
     def configure_optimizers(self):
 
         optimizers, schedulers = self.model.get_optimizer_config(self.lr, **self.args)
-
-        return optimizers, schedulers
+        if schedulers is not None :
+            return optimizers, schedulers
+        else :
+            return optimizers
 
     def lr_scheduler_step(self, scheduler, *args, **kwargs):
         scheduler.step(*args)

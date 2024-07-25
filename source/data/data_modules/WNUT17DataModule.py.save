@@ -1,9 +1,8 @@
 from __future__ import annotations
-
-import warnings
 from argparse import ArgumentParser, Namespace
 from datasets import Dataset
-from typing import Callable, Type, Optional, List
+from source.utils.register import register
+from typing import *
 import sys
 import logging
 import pathlib
@@ -13,58 +12,40 @@ from torch.utils.data.dataloader import DataLoader
 from datasets import Features, Sequence, ClassLabel, Value
 from functools import cached_property
 from transformers import AutoTokenizer
-from source.utils.misc import list_file
-import os
-os.environ["HF_DATASETS_OFFLINE"] = "1"
-from source.utils.HyperParametersManagers import HyperParametersManager
-from nltk.corpus import stopwords
+from source.utils.misc import load_from_file, list_file
+# defining labels
+class WNUT17_label(Enum):
+    B_corporation = 0
+    B_creative_work = 1
+    B_group = 2
+    B_location = 3
+    B_person = 4
+    B_product = 5
+    I_corporation = 6
+    I_creative_work = 7
+    I_group = 8
+    I_location = 9
+    I_person = 10
+    I_product = 11
+    O = 12
+    B_X = -100 # always ignore context token in loss processing
 
 
-class NERDataModule(BaseDataModule) :
-    """
-    Base class for NER DataLoading
-    """
+@register("DATASETS")
+class WNUT17DataModule(BaseDataModule) :
 
     def __init__(self,
                  collector_log_dir: pathlib.Path,
                  data_dir: pathlib.Path,
-                 file_loader: Callable,
-                 label_enum : Type[Enum],
-                 file_detector: Callable = list_file,
                  verbose: int = logging.INFO,
                  seed: int = 42,
                  batch_size: int = 32,
                  batch_size_test: int = 10,
                  single_sample_training : bool = False,
-                 tokenizer_local_load : Optional[str] = None,
-                 tokenizer_key : str = "xlm-roberta-large",
-                 gpus : int = None,
-                 shuffle : bool = True,
-                 build_annotation_detection : bool = False,
-                 **kwargs
-        ) :
-        """
-
-        :param collector_log_dir:
-        :param data_dir:
-        :param file_loader:
-        :param verbose:
-        :param seed:
-        :param batch_size:
-        :param batch_size_test:
-        :param single_sample_training:
-        :param kwargs:
-        """
+                 **kwargs) :
 
         super().__init__(**kwargs)
 
-        self.load_from_file = file_loader
-        self.label_enum = label_enum
-        self.list_file = file_detector
-        self.tokenizer_key = tokenizer_key
-        self.shuffle = shuffle
-        self.build_annotation_detection = build_annotation_detection
-        #nltk.download('stopwords')
         # Init logger
         logging.basicConfig(
             filename=collector_log_dir / "logs.log",
@@ -94,20 +75,13 @@ class NERDataModule(BaseDataModule) :
 
         self.data_loaded = False
 
-        self.tokenizer_local_load = tokenizer_local_load
-
-        if gpus is None :
-            warnings.warn(f"### WARNING : No GPU is defined, assuming only one is used or CPU only. Setting to 1.")
-            gpus = 1
-        self.gpus = gpus
-
 
 
     def update_args(self, args : Namespace) :
         return args
 
     @classmethod
-    def from_args(cls, args : Namespace) -> NERDataModule :
+    def from_args(cls, args : Namespace) -> WNUT17DataModule :
         """
         Build Rotowire Task 1 Datamodule from parser Namspace args
         :param args: namespace from main parser
@@ -125,6 +99,7 @@ class NERDataModule(BaseDataModule) :
         parent_parser = BaseDataModule.add_data_specific_args(parent_parser)
 
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
+        group = parser.add_argument_group('FUNSD DataModule')
 
         parser.add_argument("--data_dir", type = pathlib.Path, default = None)
 
@@ -134,10 +109,6 @@ class NERDataModule(BaseDataModule) :
         parser.add_argument("--verbose", action = "store_true", default = False)
         parser.add_argument("--seed", type = int, default = 42)
         parser.add_argument("--single_sample_training", action="store_true", default = False)
-        parser.add_argument("--build_annotation_detection", action="store_true", default = False)
-        parser.add_argument("--no_shuffle", action="store_false", default = True)
-        parser.add_argument("--tokenizer_local_load", type = str, default = None)
-        parser.add_argument("--tokenizer_key", type = str, default = "xlm-roberta-large")
 
         return parser
 
@@ -149,24 +120,13 @@ class NERDataModule(BaseDataModule) :
     def setup(self, stage: Optional[str] = None) -> None :
 
             # listing text files
-            files = self.list_file(self.data_dir)
-
-            # sanity check
-            if "train" not in files :
-                raise RuntimeError(f"ERROR loading files : Missing \"train\" file. Found {' '.join(files.keys())}"
-                                   f". This error might occur when selecting the wrong folder (e.g bc5cdrDataLoader with WNUT17 folder)")
-            if "test" not in files :
-                raise RuntimeError(f"ERROR loading files : Missing \"test\" file. Found {' '.join(files.keys())}"
-                                   f". This error might occur when selecting the wrong folder (e.g bc5cdrDataLoader with WNUT17 folder)")
-            if "dev" not in files :
-                raise RuntimeError(f"ERROR loading files : Missing \"dev\" file. Found {' '.join(files.keys())}"
-                                   f". This error might occur when selecting the wrong folder (e.g bc5cdrDataLoader with WNUT17 folder)")
+            files = list_file(self.data_dir)
 
             # loading from files
             self.sets = {
-                "train": self.load_from_file(files['train']),
-                "val": self.load_from_file(files['dev']),
-                "test": self.load_from_file(files['test'])
+                "train": load_from_file(files['train']),
+                "val": load_from_file(files['dev']),
+                "test": load_from_file(files['test'])
             }
 
             def gen(samples) :
@@ -180,74 +140,24 @@ class NERDataModule(BaseDataModule) :
                 "test": self.create_dataLoader(Dataset.from_generator(gen, gen_kwargs={"samples" : self.sets['test']}))
             }
 
-            # storing info
-            HyperParametersManager()['n_training_steps'] = len(self.sets['train']) / self.gpus
-            HyperParametersManager()['n_val_steps'] = len(self.sets['val']) / self.gpus
-            HyperParametersManager()['n_test_steps'] = len(self.sets['test']) / self.gpus
-
             self.data_loaded = True
 
     @cached_property
     def model_tokenizer(self) :
-
-        if self.tokenizer_local_load is None :
-
-            print("######### LOADING FROM WEB")
-            tokenizer = AutoTokenizer.from_pretrained(
-                self.tokenizer_key,
-                use_fast = True,
-                # add_prefix_space=True,
-                # model_max_length=512
-            )
-        else :
-            tokenizer = self.load_tokenizer_locally(self.tokenizer_local_load)
-
-        print("######### SETTING PAD TOKENS")
-        tokenizer.add_tokens(["<EOS>"], special_tokens=True)
-        tokenizer.pad_token = tokenizer.eos_token
-        #tokenizer.add_special_tokens({'pad_token': '[PAD]'})
-
-        return tokenizer
-
-    def load_tokenizer_locally(self, tokenizer_local_load) :
-        """
-        Load the tokenizer from local files given the env variable MODEL_FILES is defined.
-        :param tokenizer_local_load: subdirectory holding the model files
-        :return : the tokenizer
-        """
-
-        print("## LOCAL LOAD TOKENIZER")
-
-        # sanity check
-        if "MODEL_FILES" not in os.environ :
-            raise EnvironmentError(f"No $MODEL_FILES env variable have been defined. Make sure to set it "
-                                   f"model file location in order to load the tokenizer locally.")
-
-        # creating path
-        path_tokenizer = pathlib.Path(os.environ['MODEL_FILES']) / tokenizer_local_load
-
-        if not path_tokenizer.exists() :
-            raise FileNotFoundError(f"Directory {path_tokenizer} not found.")
-
-        # loading model
-        model = AutoTokenizer.from_pretrained(
-            path_tokenizer,
+        tokenizer = AutoTokenizer.from_pretrained(
+            "xlm-roberta-large",
             use_fast = True,
-            add_prefix_space = True,
-            padding="max_length",
-            is_split_into_words=True,
-            truncation=True,
-            return_tensors="pt",
-            model_max_length=512
+            add_prefix_space=True
         )
 
-        return model
+        tokenizer.add_tokens(["<EOS>"], special_tokens=True)
+
+        return tokenizer
 
     def process_labels(
             self,
             encoding,
             labels_samples,
-            labels_dectection_samples,
             ignore_label: int = -100,
     ) -> List:
         """
@@ -259,81 +169,36 @@ class NERDataModule(BaseDataModule) :
         :return: tuple formed by the final lanels and bounding box sequence
         """
         res_labels = []
-        res_labels_detection = []
 
-        # get label converter
-        label2id = {i.name : i.value for i in self.label_enum }
+        label2id = {i.name : i.value for i in WNUT17_label}
 
-        # iterating trough samples
         for index_sample in range(len(encoding['attention_mask'])):
 
-            # qetting words ids
             word_ids = encoding.word_ids(batch_index=index_sample)
-
-            # converting labels to int
             labels = [
                 label2id[label_str] for label_str in labels_samples[index_sample]
             ]
 
-            labels_detection = labels_dectection_samples[index_sample]
-
-
             previous_word_idx = None
             current_labels = []
-            current_labels_detection = []
 
             for word_idx in word_ids:
                 if word_idx is None:
                     current_labels.append(ignore_label)
-                    current_labels_detection.append(ignore_label)
 
                 elif word_idx == previous_word_idx:
+
                     current_labels.append(ignore_label)
-                    current_labels_detection.append(ignore_label)
 
                 else:
                     current_labels.append(labels[word_idx])
-                    current_labels_detection.append(labels_detection[word_idx])
 
                 previous_word_idx = word_idx
 
             res_labels.append(current_labels)
-            res_labels_detection.append(current_labels_detection)
 
-        return res_labels, res_labels_detection
+        return res_labels
 
-    def extract_label_detection(self, text, labels) :
-
-
-        labels_detection = []
-
-        for i in range(len(text)) :
-
-            res_labels_detection = []
-
-            for token, label in zip(text[i], labels[i]) :
-
-                if label == "B_X" :
-
-                    # chceking if stop word
-                    if token.lower() in stopwords.words('english') :
-                        res_labels_detection.append(0)
-                    elif token.isalpha() and token[0].isupper() :
-                        res_labels_detection.append(1)
-                    elif token.isnumeric() :
-                        res_labels_detection.append(1)
-                    else :
-                        res_labels_detection.append(0)
-
-                elif label == "O" :
-
-                    res_labels_detection.append(0)
-                else :
-                    res_labels_detection.append(1)
-
-            labels_detection.append(res_labels_detection)
-
-        return labels_detection
     def process_attention_mask_without_context(self, input_ids, attention_mask, eos_token_id) :
 
         res_attention_mask = []
@@ -370,7 +235,6 @@ class NERDataModule(BaseDataModule) :
         # extracting data
         tokens = samples['text']
         labels = samples['ner_tags']
-        labels_detection = self.extract_label_detection(tokens, labels)
 
         # tokenizing data
         encoded_input = self.model_tokenizer(
@@ -382,10 +246,9 @@ class NERDataModule(BaseDataModule) :
         )
 
         # processing labels
-        labels, labels_detection = self.process_labels(
+        labels = self.process_labels(
             encoded_input,
-            labels,
-            labels_detection
+            labels
         )
 
         # processing attention mask without context and token type ids
@@ -402,13 +265,12 @@ class NERDataModule(BaseDataModule) :
             self.model_tokenizer.sep_token
         )
 
+
         # storing info
         encoded_input['labels'] = labels
         encoded_input['token_type_ids'] = token_type_ids
         encoded_input['attention_mask_without_context'] = attention_mask_without_context
-
-        if self.build_annotation_detection :
-            encoded_input['labels_detection'] = labels_detection
+        encoded_input['token_type_ids'] = token_type_ids
 
         return encoded_input
 
@@ -422,27 +284,21 @@ class NERDataModule(BaseDataModule) :
         """
 
         # we need to define custom features
-        features_dict = {
+        features = Features({
             'input_ids': Sequence(feature=Value(dtype='int64')),
             'attention_mask': Sequence(Value(dtype='int64')),
             'attention_mask_without_context': Sequence(Value(dtype='int64')),
-            'labels': Sequence(ClassLabel(names=[self.label_enum(i).name for i in range(len(self.label_enum) - 1)])),
+            'labels': Sequence(ClassLabel(names=[WNUT17_label(i).name for i in range(len(WNUT17_label) - 1)])),
             'token_type_ids': Sequence(feature=Value(dtype='int64')),
-        }
 
-        if self.build_annotation_detection :
-            features_dict['labels_detection'] = Sequence(ClassLabel(names=["entity", "not_entity"]))
-
-        features = Features(features_dict)
+        })
 
         # pre processing data
         datasets = raw_samples.map(
             self.preprocess_data,
             batched=True,
-            batch_size=32,
             features=features,
-            remove_columns=['text', 'ner_tags'],
-            load_from_cache_file=True
+            remove_columns=['text', 'ner_tags']
         )
 
         datasets.set_format(type="torch")
@@ -450,7 +306,7 @@ class NERDataModule(BaseDataModule) :
         dataLoader = DataLoader(
             datasets,
             batch_size=self.batch_size,
-            shuffle=self.shuffle
+            shuffle=True
         )
 
         return dataLoader

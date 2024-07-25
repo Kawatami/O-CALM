@@ -1,20 +1,12 @@
 import warnings
 from argparse import Namespace
 from source.utils.register import Registers
-from source.utils.misc import store_results, process_last_checkoint_path
+from source.utils.misc import store_results, process_last_checkoint_path, use_proxy
 from source.callbacks.factory import CallbacksFactory
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import TensorBoardLogger
 import logging
 import os
-
-proxy = 'http://192.168.0.100:3128'
-
-os.environ['http_proxy'] = proxy
-os.environ['HTTP_PROXY'] = proxy
-os.environ['https_proxy'] = proxy
-os.environ['HTTPS_PROXY'] = proxy
-
 
 
 def train(args : Namespace) -> int :
@@ -23,6 +15,13 @@ def train(args : Namespace) -> int :
     :param args: Namespace with all the needed arguments
     :return: 0 if successful 1 otherwise
     """
+
+
+    # check for proxy
+    if "USE_PROXY" in os.environ or args.use_proxy :
+        use_proxy()
+    else :
+        print(f"######## NO PROXY USED")
 
     # overwritting log_every_n_step
     args.log_every_n_steps = 1
@@ -76,9 +75,12 @@ def train(args : Namespace) -> int :
         else :
             logging.info(f"## RESTORING FROM CHECKPOINT AT {path_checkpoint}")
 
+    logging.info('####### START TRAINING')
 
     # launching training
     trainer.fit(model=task, datamodule=dataset, ckpt_path=path_checkpoint)
+
+    logging.info('####### END TRAINING - EVAL MODE')
 
     # passing model into evaluation mode
     task.model.eval()

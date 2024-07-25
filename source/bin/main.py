@@ -53,6 +53,9 @@ def main() -> int :
                                    help=f"Using only one gpu during testing"
                                         f"Used when for callback datacollection")
 
+    high_level_parser.add_argument('--use_proxy', default=False,
+                                   action="store_true")
+
     high_level_parser.add_argument('--verbose', type=int, default=1,
                                    choices=[0, 1, 2, 3],
                                    help=f'verbose mode ' \

@@ -61,7 +61,7 @@ class ContextGenerator :
 
             self.tokenizer = AutoTokenizer.from_pretrained(
                 LLM_key,
-                use_auth_token="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",
+                token="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",
                 is_split_into_words=self.is_split_into_words
             )
         else :
@@ -148,7 +148,7 @@ class ContextGenerator :
 
             yield prompted_text, original_texts
 
-    def generate(self, input_texts : List[str])  :
+    def generate(self, input_texts : List[str], limit = None)  :
         """
         Generate a context given a text and an input prompt
         :param input_text:
@@ -164,7 +164,7 @@ class ContextGenerator :
 
         with torch.no_grad() :
 
-            #i = 0
+            i = 0
 
             for texts, original_texts in tqdm(generator, total=len(input_texts) // self.batch_size) :
 
@@ -177,14 +177,15 @@ class ContextGenerator :
                     is_split_into_words = False
                 )
 
-                if self.use_cuda :
-                    encoded_input = self.move_data_GPU(encoded_input)
+                #if self.use_cuda :
+                encoded_input = self.move_data_GPU(encoded_input)
 
 
 
                 # generation
                 generate_ids  = self.model.generate(
                     encoded_input['input_ids'],
+                    attention_mask = encoded_input['attention_mask'],
                     # num_beams=5,
                     max_new_tokens=self.generation_max_length,
                     # early_stopping=True,
@@ -200,12 +201,12 @@ class ContextGenerator :
                 )
 
                 # cleaning output
-                current_output = [  # removing prompt
-                    generated_answer.replace(text, '').strip() for generated_answer, text in zip(current_output, texts)
-                ]
-                current_output = [  # removing \n
-                    generated_answer.replace("\n", '.').strip() for generated_answer, text in zip(current_output, texts)
-                ]
+                # #current_output = [  # removing prompt
+                #     generated_answer.replace(text, '').strip() for generated_answer, text in zip(current_output, texts)
+                # ]
+                # current_output = [  # removing \n
+                #     generated_answer.replace("\n", '.').strip() for generated_answer, text in zip(current_output, texts)
+                # ]
 
                 # post process for easier statistics
                 for  text, generated_answer in zip(original_texts, current_output) :
@@ -221,10 +222,10 @@ class ContextGenerator :
 
                 outputs += current_output
 
-                # if i >= 3 :
-                #     break
-                #
-                # i += 1
+                if limit is not None and i >= limit :
+                    break
+
+                i += 1
 
 
             return outputs, outputs_post_process

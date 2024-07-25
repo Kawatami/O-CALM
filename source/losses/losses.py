@@ -2,9 +2,9 @@ import torch
 from source.losses.base_loss import BaseLoss
 from source.utils.register import register
 from argparse import ArgumentParser
-from torch.nn import KLDivLoss
+from torch.nn import KLDivLoss, BCELoss
 import torch.nn.functional as F
-
+from argparse import Namespace
 
 @register('LOSSES')
 class CRFLoss(BaseLoss):
@@ -25,27 +25,25 @@ class CRFLoss(BaseLoss):
 
 @register('LOSSES')
 @register('METRICS')
-class CrossEntropyLoss(torch.nn.CrossEntropyLoss, BaseLoss):
+class CrossEntropyLoss(BaseLoss):
     _names = ['CrossEntropy']
 
 
     def __init__(self,
-                 class_weights: torch.Tensor,
+                 class_weights: torch.Tensor = None,
                  log_name : str = None,
                  label_smoothing : float = 0.0,
                  **kwargs):
 
-        print(f"CLASS WEIGHTS : {class_weights}")
-        #exit()
-        super().__init__(
+
+        super().__init__(log_name=log_name)
+        self.criterion = torch.nn.CrossEntropyLoss(
             reduction="mean",
             ignore_index=-100,
             weight=class_weights,
             label_smoothing=label_smoothing
         )
 
-        BaseLoss.__init__(self, log_name=log_name)
-        #torch.nn.CrossEntropyLoss.__init__(self, reduction="mean", ignore_index=-100, weight=class_weights)
 
     @property
     def name(self):
@@ -62,18 +60,114 @@ class CrossEntropyLoss(torch.nn.CrossEntropyLoss, BaseLoss):
 
         prd, tgt = self._prep_inputs(batch)
 
-        loss = super().__call__(prd, tgt,)
+        print("======")
+        print(prd)
+        print("~~")
+        print(tgt)
+
+        loss = self.criterion(prd, tgt,)
 
         return loss
 
+    @classmethod
+    def from_args(cls, args : Namespace) -> BaseLoss:
+        """
+        Build Loss object from Namespace issued by main parser
+        :param args:
+        :return:
+        """
+
+        return cls(**vars(args))
+
     @staticmethod
     def _prep_inputs(batch):
-        prd, tgt = batch['input1'], batch['input2']
+        prd, tgt = batch['prediction'], batch['labels']
+
+
         n_classes = prd.shape[-1]
 
         if tgt.type() != torch.LongTensor :
             tgt = tgt.long()
         return prd.view(-1, n_classes), tgt.view(-1)
+
+    @staticmethod
+    def add_loss_specific_args(parent_parser):
+
+        # calling baseloss arguments
+        parser = BaseLoss.add_loss_specific_args(parent_parser)
+
+        parser = ArgumentParser(parents=[parser], add_help=False)
+        group = parser.add_argument_group('Cross Entropy loss')
+
+        group.add_argument("--label_smoothing", type=float, default=0.0)
+
+        return parser
+
+@register('LOSSES')
+@register('METRICS')
+class BinaryCrossEntropy(BaseLoss):
+    _names = ['CrossEntropy']
+
+
+    def __init__(self,
+                 class_weights: torch.Tensor = None,
+                 log_name : str = None,
+                 label_smoothing : float = 0.0,
+                 **kwargs):
+
+
+        super().__init__(log_name=log_name)
+        self.criterion = torch.nn.BCEWithLogitsLoss(
+            reduction="none",
+            weight=class_weights,
+        )
+
+
+    @property
+    def name(self):
+        if self.log_name is not None:
+            return f"{__class__.__name__}_{self.log_name}"
+        else:
+            return __class__.__name__
+
+    @property
+    def abbrv(self):
+        return 'xent'
+
+    def __call__(self, batch, **kwargs):
+
+        # getting data
+        prd, tgt = self._prep_inputs(batch)
+
+        # preparing mask
+        mask = (tgt != -100).float()
+
+        # replacing ignore index
+        tgt[tgt == -100] = 0
+
+        # processing loss
+        loss = self.criterion(prd, tgt,)
+
+        # processing finale loss
+        loss = (loss * mask).mean()
+
+        return loss
+
+    @classmethod
+    def from_args(cls, args : Namespace) -> BaseLoss:
+        """
+        Build Loss object from Namespace issued by main parser
+        :param args:
+        :return:
+        """
+
+        return cls(**vars(args))
+
+    @staticmethod
+    def _prep_inputs(batch):
+        prd, tgt = batch['input1'], batch['input2']
+
+        return prd.view(-1), tgt.view(-1).float()
 
     @staticmethod
     def add_loss_specific_args(parent_parser):

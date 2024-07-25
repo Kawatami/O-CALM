@@ -10,6 +10,7 @@ from enum import Enum
 from source.data.data_modules.WNUT17DataModule import WNUT17_label
 from source.data.data_modules.bc5cdrDataModule import BC5CDR_label
 from source.data.data_modules.CNLLPPDataModule import CNLLPP_label
+from sklearn.metrics._classification import classification_report
 
 @register('METRICS')
 class Accuracy(BaseMetric):
@@ -58,6 +59,80 @@ class Accuracy(BaseMetric):
 
     def compute(self) -> Any :
         return (self.correct_prediction_count / self.total_prediction_count).item()
+
+    @staticmethod
+    def add_metric_specific_args(parent_parser : ArgumentParser) -> ArgumentParser :
+        parser = ArgumentParser(parents=[parent_parser], add_help=False)
+        group = parser.add_argument_group('Accuracy metric')
+        group.add_argument("--acc_threshold", type=float, default=0.5)
+
+        return parser
+
+    def _prep_inputs(self, model_outputs):
+        prd, tgt = model_outputs['prediction'] , model_outputs['labels']
+
+
+        # getting number of classes
+        n_classes = model_outputs['prediction'].shape[-1]
+
+        # reshaping
+        prd, tgt = prd.view(-1, n_classes), tgt.view(-1)
+
+
+        return prd, tgt
+
+@register('METRICS')
+class ClassificationReport(BaseMetric):
+    """
+    Process Accuracy
+    """
+    _names = ['ClassificationReport']
+
+    @property
+    def name(self):
+        if self.log_name is not None:
+            return f"{__class__.__name__}_{self.log_name}"
+        else:
+            return __class__.__name__
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.add_state(f"prediction", default=torch.Tensor([]), dist_reduce_fx='cat')
+        self.add_state(f"target", default=torch.Tensor([]), dist_reduce_fx='cat')
+
+
+    def update(self, batch : dict) -> None:
+
+        self.prediction = torch.cat((self.prediction, batch['prediction'].argmax(dim=-1).detach()), dim=0)
+        self.target = torch.cat((self.target, batch['labels'].detach()), dim=0)
+
+    def compute(self) -> Any :
+
+        # getting info
+        prediction = self.prediction.view(-1).cpu().numpy()
+        labels = self.target.view(-1).cpu().numpy()
+
+        # processing classification report
+        output = classification_report(
+            y_true=labels,
+            y_pred=prediction,
+            output_dict=True,
+            zero_division=1.0
+        )
+
+        # formating dict
+        output_dict = {}
+        for k, v in output.items() :
+
+            if isinstance(v, dict) :
+                for sub_k, sub_v in v.items() :
+                    output_dict["SELECTOR_" + k + "_" + sub_k] = sub_v
+            else :
+                output_dict[k] = v
+
+        return [(k, v) for k, v in output_dict.items()]
+
 
     @staticmethod
     def add_metric_specific_args(parent_parser : ArgumentParser) -> ArgumentParser :
@@ -228,7 +303,6 @@ class SeqEvalWNUT17(BaseSeqEval):
 
     def __init__(self, **kwargs):
         super().__init__(WNUT17_label, **kwargs)
-
 
 @register('METRICS')
 class SeqEvalBC5CDR(BaseSeqEval):
