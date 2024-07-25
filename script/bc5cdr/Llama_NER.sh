@@ -55,7 +55,11 @@ do
             --modelCheckpoint_monitor CONTEXT_micro_avg_f1-score/valset \
             --modelCheckpoint_mode max \
             --dropout 0.1 \
-            --version $N_RUN
+            --version $N_RUN \
+            --training_key dmis-lab/biobert-large-cased-v1.1 \
+            --tokenizer_key dmis-lab/biobert-large-cased-v1.1 \
+            --merge_train_dev \
+            --use_proxy
 
   done
 done

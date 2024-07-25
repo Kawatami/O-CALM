@@ -68,7 +68,8 @@ def main(args: argparse.Namespace) -> None:
         # init prompt generator
         prompt_generator = PromptGenerator(
             prompt=prompt,
-           # system_tags=("", "Context :")
+            system_tags=("<|begin_of_text|><|start_header_id|>system<|end_header_id|>", "<|eot_id|><|start_header_id|>user<|end_header_id|>"),
+            instruction_tag=("", "<|eot_id|>")
         )
 
         # update promt_generator
@@ -99,7 +100,7 @@ def main(args: argparse.Namespace) -> None:
             labels = [ sample['ner_tags'] for sample in samples ]
 
             # calling generator
-            output, output_post_processed = generator.generate(texts)
+            output, output_post_processed = generator.generate(texts, limit=args.limit)
 
             # pot processing generated sequence
             output, labels_context = format_sequence(output)
@@ -140,7 +141,7 @@ if __name__ == "__main__":
     parser.add_argument("--destination", type=pathlib.Path)
     parser.add_argument("--skip_already_processed", action='store_true', default=False)
     parser.add_argument("--select_prompts", type = str, nargs= "+", default=[])
-
+    parser.add_argument("--limit", type = int, default = None)
     args = parser.parse_args()
 
     main(args)

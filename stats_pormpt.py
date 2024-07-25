@@ -133,12 +133,11 @@ def main(args: argparse.Namespace) -> None :
     # denied answer
     denied = [(sample['generated_context'], i) for i, sample in enumerate(samples) if "I apologize" in sample['generated_context'] ]
 
-
     res = {
         "empty" : zeros_text,
-        "errors" : [],
-        "denied" : [],
-        "good" : good + errors + denied,
+        "errors" : errors,
+        "denied" : denied,
+        "good" : good ,
 
     }
 
